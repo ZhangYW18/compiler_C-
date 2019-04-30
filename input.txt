@@ -1,14 +1,21 @@
-int sum(int a,b){
-	int c;
-    c = a+b;
-    return c;
+int factor(int n) {
+    if (n < 2) {
+        return 1;
+    }
+    return n * factor(n - 1);
 }
 
-
-int main()
-{
-    int a,b;
-    a=2;b=3;
-    ans=sum(a,b);
+int main() {
+    int i;
+    i = 0;
+    while (i < 10) {
+        i = i + 1;
+        if (i == 3 | i == 5) {
+            continue;
+        }
+        if (i == 8) {
+            break;
+        }
+    }
     return 0;
 }
