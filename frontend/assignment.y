@@ -3,9 +3,19 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#define MAX_STACK_SIZE 105
+#define MAX_ARGS_SIZE 27
+#define MAX_VARS_SIZE 27
 
-int ii = 0, itop = -1, istack[100];
-int ww = 0, wtop = -1, wstack[100];
+extern FILE* yyin;
+FILE *incFileName;
+
+int ii = 0, itop = -1, istack[MAX_STACK_SIZE];
+int ww = 0, wtop = -1, wstack[MAX_STACK_SIZE];
+char *nowFuncName;
+char *inputFileName, *outputFileName, *incFileNameString;
+int nowArgs, nowVars;
+char  *nowFuncArgs[MAX_ARGS_SIZE], *nowFuncVars[MAX_VARS_SIZE];
 
 #define _BEG_IF     {istack[++itop] = ++ii;}
 #define _END_IF     {itop--;}
@@ -42,11 +52,21 @@ declaration: var_declaration
 | func_declaration
 ;
 
-var_declaration: type_specifier var_decl_list ';' { printf("\n"); }
+var_declaration: type_specifier var_decl_list ';' {
+	printf("\n");
+}
 ;
 
-var_decl_list: var_decl_id { printf("\tvar %s", $1); }
-| var_decl_list ',' var_decl_id { printf(", %s", $3); }
+var_decl_list: var_decl_id {
+	printf("\t%s.var %s",  nowFuncName, $1);
+	nowVars++;
+	nowFuncVars[nowVars] = $1;
+}
+| var_decl_list ',' var_decl_id {
+	printf(", %s", $3);
+	nowVars++;
+	nowFuncVars[nowVars] = $3;
+}
 ;
 
 var_decl_id: Identifier
@@ -59,11 +79,18 @@ type_specifier: T_Int
 ;
 
 func_declaration: type_specifier FuncName '(' params ')' statement
-								{      printf("ENDFUNC\n\n");    }
+								{
+									printf("ENDFUNC@%s\n\n",nowFuncName);
+									my_writeFunc();
+								}
 ;
 
 FuncName:
-Identifier     { printf("FUNC @%s:\n", $1); }
+Identifier     {
+	nowFuncName = $1;
+	nowVars=nowArgs=0;
+	printf("FUNC @%s:\n", $1);
+}
 ;
 
 params: param_list
@@ -77,8 +104,16 @@ param_list: param_type_list
 param_type_list: type_specifier param_id_list   { printf("\n "); }
 ;
 
-param_id_list: param_id_list ',' param_id { printf(", %s",$3); }
-| param_id { printf("\targ %s",$1); }
+param_id_list: param_id_list ',' param_id {
+	printf(",%s",  $3);
+	nowArgs++;
+	nowFuncArgs[nowArgs] = $3;
+}
+| param_id {
+	printf("\t%s.arg %s",  nowFuncName, $1);
+	nowArgs++;
+	nowFuncArgs[nowArgs] = $1;
+}
 ;
 
 param_id: Identifier
@@ -292,15 +327,51 @@ arg_list: arg_list ',' expression
 | expression
 ;
 
-Identifier: IDENTIFIER
+Identifier: IDENTIFIER 
 ;
 
 %%
 
 void yyerror(char* msg)
 {
-	printf("%s: line %d\n", msg, yylineno);
+	printf("\n\n%s: line %d\n", msg, yylineno);
 	exit(0);
+}
+
+void my_writeFunc() {
+	fprintf(incFileName, "; ---------Now Function Is: %s ---------------\n", nowFuncName);
+	fprintf(incFileName,"%%define %s.argc %d\n",  nowFuncName, nowArgs );
+	fprintf(incFileName,"%%define %s.varc %d\n",  nowFuncName, nowVars );
+
+	fprintf(incFileName,
+    			"\n%%MACRO $%s 0\n\tCALL @%s\n\tADD ESP, 4*%s.argc\n\tPUSH EAX\n%%ENDMACRO\n\n",
+                nowFuncName, nowFuncName, nowFuncName);
+
+	if (nowArgs!=0) {
+		fprintf(incFileName, "%%MACRO %s.arg %s.argc\n", nowFuncName, nowFuncName);
+		for (int i=1;i<=nowArgs;i++) {
+			fprintf(incFileName,"\t%%define %s [EBP + 8 + 4*%s.argc - 4*%d]\n", nowFuncArgs[i], nowFuncName, i);
+		}
+		fprintf(incFileName, "%%ENDMACRO\n\n" );
+	}
+
+	if (nowVars!=0) {
+		fprintf(incFileName, "%%MACRO %s.var %s.varc\n", nowFuncName, nowFuncName);
+		for (int i=1;i<=nowVars;i++) {
+			fprintf(incFileName,"\t%%define %s [EBP - 4*%d]\n", nowFuncVars[i], i);
+		}
+		fprintf(incFileName, "\tSUB ESP, 4*%s.varc\n", nowFuncName);
+		fprintf(incFileName, "%%ENDMACRO\n\n" );
+	}
+
+	fprintf(incFileName, "%%MACRO ENDFUNC@%s 0\n\tLEAVE\n\tRET\n" ,nowFuncName);
+	for (int i=1;i<=nowArgs;i++) {
+		fprintf(incFileName, "\t%%undef %s\n", nowFuncArgs[i]);
+	}
+	for (int i=1;i<=nowVars;i++) {
+		fprintf(incFileName, "\t%%undef %s\n", nowFuncVars[i]);
+	}
+	fprintf(incFileName, "%%ENDMACRO\n\n\n");
 }
 
 int main(int argc, char *argv[])
@@ -316,8 +387,16 @@ int main(int argc, char *argv[])
 		exit(0);
 	}
 
+	printf("%%include \"macro.inc\"\n");
+	printf("%%include \"my.inc\"\n\n");
+//	printf("\tMOV EBP, ESP\n");
+	incFileNameString = "./backend/my.inc";
+	incFileName = fopen(incFileNameString, "w");
+
 	yyparse();
 
+	printf("exit 0");
 	fclose(yyin);
+	fclose(incFileName);
 	return 0;
 }
