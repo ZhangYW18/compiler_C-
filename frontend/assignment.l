@@ -9,8 +9,8 @@
 
 %%
 
-"int"                 { return T_Int; }
-"void"              { return T_Void; }
+"int"                 { yylval = strdup(yytext);return T_Int; }
+"void"              { yylval = strdup(yytext);return T_Void; }
 "return"            { return T_Return; }
 "while"             { return T_While; }
 "if"                { return T_If; }
@@ -23,9 +23,6 @@
 "!="                { return T_Ne; }
 "+="                { return T_AddEq; }
 "-="                { return T_SubEq; }
-"true"     { return T_True; }
-"false"     { return T_False; }
-
 
 [A-Za-z]([A-Za-z]|[0-9])*		{
 								yylval = strdup(yytext);
@@ -37,7 +34,7 @@
 		return INTEGER;
 		}
 
-"+"|"-"|"*"|"/"|"("|")"|"="|">"|"<"|"%"|"&"|"|"|"!"|"["|"]"|"{"|"}"|";"|"," {
+"+"|"-"|"*"|"/"|"("|")"|"="|">"|"<"|"%"|"&"|"|"|"!"|"{"|"}"|";"|"," {
 	return *yytext;
 }
 

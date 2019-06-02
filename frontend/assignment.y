@@ -6,6 +6,7 @@
 #define MAX_STACK_SIZE 105
 #define MAX_ARGS_SIZE 27
 #define MAX_VARS_SIZE 27
+#define MAX_FUNCTIONS 100
 
 extern FILE* yyin;
 FILE *incFileName;
@@ -14,8 +15,8 @@ int ii = 0, itop = -1, istack[MAX_STACK_SIZE];
 int ww = 0, wtop = -1, wstack[MAX_STACK_SIZE];
 char *nowFuncName;
 char *inputFileName, *outputFileName, *incFileNameString;
-int nowArgs, nowVars;
-char  *nowFuncArgs[MAX_ARGS_SIZE], *nowFuncVars[MAX_VARS_SIZE];
+int nowFuncs=0, nowArgs, nowVars, nowFuncType, nowFuncReturn;
+char  *nowFuncArgs[MAX_ARGS_SIZE], *nowFuncVars[MAX_VARS_SIZE], *nowFunc[MAX_FUNCTIONS];
 
 #define _BEG_IF     {istack[++itop] = ++ii;}
 #define _END_IF     {itop--;}
@@ -30,65 +31,49 @@ FILE * yyin;
 extern int yylineno;
 
 void yyerror(char* msg);
+void my_writeFunc();
+int check(char *str);
+
 %}
 
 
 %token  INTEGER
 %token  IDENTIFIER
 %token T_Int T_Void T_Return T_Break T_While T_If T_Else T_Le T_Ge T_Ne
-%token T_Eq T_AddEq T_SubEq T_True
-%token T_False T_Continue
+%token T_Eq T_AddEq T_SubEq  T_Continue
 
 %%
 
 start: declaration_list
 
 
-declaration_list: declaration_list declaration
-| declaration
-;
-
-declaration: var_declaration
+declaration_list: declaration_list func_declaration
 | func_declaration
 ;
 
-var_declaration: type_specifier var_decl_list ';' {
-	printf("\n");
-}
-;
-
-var_decl_list: var_decl_id {
-	printf("\t%s.var %s",  nowFuncName, $1);
-	nowVars++;
-	nowFuncVars[nowVars] = $1;
-}
-| var_decl_list ',' var_decl_id {
-	printf(", %s", $3);
-	nowVars++;
-	nowFuncVars[nowVars] = $3;
-}
-;
-
-var_decl_id: Identifier
-| Identifier '[' INTEGER ']' /* not done */
-;
-
-type_specifier: T_Int
-| T_Void
-;
-
-func_declaration: type_specifier FuncName '(' params ')' statement
+func_declaration: func_type_name '(' params ')' statement
 								{
+									if (nowFuncType==1) {
+										if (nowFuncReturn==0) yyerror("return not found in function");
+									}
 									printf("ENDFUNC@%s\n\n",nowFuncName);
 									my_writeFunc();
 								}
 ;
 
+func_type_name: type_specifier FuncName {
+	if (strcmp($1,"int")==0) {
+		nowFuncType = 1;
+	} else nowFuncType = 0;
+}
+
 FuncName:
 Identifier     {
-	nowFuncName = $1;
+	nowFuncs++;
+	nowFunc[nowFuncs] = nowFuncName = $1;
 	nowVars=nowArgs=0;
 	printf("FUNC @%s:\n", $1);
+	nowFuncReturn = 0;
 }
 ;
 
@@ -104,11 +89,13 @@ param_type_list: type_specifier param_id_list   { printf("\n "); }
 ;
 
 param_id_list: param_id_list ',' param_id {
+	if (check($3)) yyerror("duplicate parameters");
 	printf(",%s",  $3);
 	nowArgs++;
 	nowFuncArgs[nowArgs] = $3;
 }
 | param_id {
+	if (check($1)) yyerror("duplicate parameters");
 	printf("\t%s.arg %s",  nowFuncName, $1);
 	nowArgs++;
 	nowFuncArgs[nowArgs] = $1;
@@ -116,11 +103,36 @@ param_id_list: param_id_list ',' param_id {
 ;
 
 param_id: Identifier
-| Identifier '[' ']'
 ;
 
 local_declarations: local_declarations var_declaration
 | /* empty */
+;
+
+var_declaration: type_specifier var_decl_list ';' {
+	printf("\n");
+}
+;
+
+var_decl_list: var_decl_id {
+	if (check($1)) yyerror("duplicate variable");
+	printf("\t%s.var %s",  nowFuncName, $1);
+	nowVars++;
+	nowFuncVars[nowVars] = $1;
+}
+| var_decl_list ',' var_decl_id {
+	if (check($3)) yyerror("duplicate variable");
+	printf(", %s", $3);
+	nowVars++;
+	nowFuncVars[nowVars] = $3;
+}
+;
+
+var_decl_id: Identifier
+;
+
+type_specifier: T_Int
+| T_Void
 ;
 
 statement_list: statement_list statement
@@ -200,13 +212,25 @@ continue_stmt:
 T_Continue ';'  { printf("\tjmp _begWhile_%d\n", _w); }
 ;
 
-return_stmt: T_Return ';' { printf("\tret\n\n"); }
-| T_Return expressions ';' { printf("\tret ~\n\n"); }
+return_stmt: T_Return ';' {
+	if (nowFuncType==1) yyerror("must return something in function");
+	printf("\tret\n\n");
+}
+| T_Return expressions ';' {
+	if (nowFuncType==0) yyerror("return something not allowed in void function");
+	printf("\tret ~\n\n");
+	nowFuncReturn++;
+}
 ;
 
 expressions:
 var '=' expressions
 {
+	int flag=0;
+	for (int i=1;i<=nowVars;i++) {
+		if (strcmp($1,nowFuncVars[i])==0) flag=1;
+	}
+	if (!flag) yyerror("the left side of assignment statement (\"=\") must be a variable");
 	printf("\tpush %s\n", $3);
 	printf("\tpop %s\n", $1);
 }
@@ -247,8 +271,7 @@ var '=' simple_expression
 | simple_expression
 ;
 
-var: Identifier
-| Identifier '[' expression ']' /* not done */
+var: Identifier { if (!check($1)) yyerror("undefined variable"); }
 ;
 
 simple_expression:
@@ -304,7 +327,14 @@ constant:
 INTEGER
 ;
 
-call: Identifier '(' args ')' { printf("\t$%s\n", $1); }
+call: Identifier '(' args ')' {
+	int flag=0;
+	for (int i=1;i<=nowFuncs;i++) {
+		if (strcmp($1,nowFunc[i])==0) flag=1;
+	}
+	if (!flag) yyerror("function not defined before");
+	printf("\t$%s\n", $1);
+}
 ;
 
 args: arg_list
@@ -320,6 +350,16 @@ Identifier: IDENTIFIER
 ;
 
 %%
+
+int check(char *str) {
+	for (int i=1;i<=nowArgs;i++) {
+		if (strcmp(str,nowFuncArgs[i])==0) return 1;
+	}
+	for (int i=1;i<=nowVars;i++) {
+		if (strcmp(str,nowFuncVars[i])==0) return 1;
+	}
+	return 0;
+}
 
 void yyerror(char* msg)
 {
@@ -376,15 +416,12 @@ int main(int argc, char *argv[])
 		exit(0);
 	}
 
-	printf("%%include \"macro.inc\"\n");
-	printf("%%include \"my.inc\"\n\n");
 //	printf("\tMOV EBP, ESP\n");
 	incFileNameString = "./backend/my.inc";
 	incFileName = fopen(incFileNameString, "w");
 
 	yyparse();
 
-	printf("exit 0");
 	fclose(yyin);
 	fclose(incFileName);
 	return 0;
