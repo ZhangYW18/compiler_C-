@@ -1,0 +1,352 @@
+     1                                  %include "macro.inc"
+     1                              <1> ;exit语句，程序正常运行结束
+     2                              <1> %MACRO exit 1
+     3                              <1>     MOV EAX, 1
+     4                              <1>     MOV EBX, %1
+     5                              <1>     INT 0x80
+     6                              <1> %ENDMACRO
+     7                              <1> 
+     8                              <1> ;编写跳转语句
+     9                              <1> %MACRO jz 1
+    10                              <1>     POP EAX
+    11                              <1>     OR EAX, EAX
+    12                              <1>     JZ %1
+    13                              <1> %ENDMACRO
+    14                              <1> 
+    15                              <1> %MACRO jmp 1
+    16                              <1>     JMP %1
+    17                              <1> %ENDMACRO
+    18                              <1> 
+    19                              <1> ;编写push和pop语句
+    20                              <1> %MACRO push 1
+    21                              <1>     PUSH DWORD %1
+    22                              <1> %ENDMACRO
+    23                              <1> 
+    24                              <1> %MACRO pop 0-1
+    25                              <1>     %IFIDN %0, 0
+    26                              <1>         ADD ESP, 4			;没有参数，只有pop则更新栈指针
+    27                              <1>     %ELSE
+    28                              <1>         POP DWORD %1		;否则pop栈顶到指定位置（pop x）
+    29                              <1>     %ENDIF
+    30                              <1> %ENDMACRO
+    31                              <1> 
+    32                              <1> ;算数计算语句，取栈顶的变量进行计算，原理和代码大致相同
+    33                              <1> ;各个语句的细节在汇编语言课上学习过
+    34                              <1> 
+    35                              <1> %MACRO add 0
+    36                              <1>     POP EAX
+    37                              <1>     ADD DWORD [ESP], EAX
+    38                              <1> %ENDMACRO
+    39                              <1> 
+    40                              <1> %MACRO sub 0
+    41                              <1>     POP EAX
+    42                              <1>     SUB DWORD [ESP], EAX
+    43                              <1> %ENDMACRO
+    44                              <1> 
+    45                              <1> %MACRO mul 0
+    46                              <1>     POP EAX
+    47                              <1>     MUL DWORD [ESP]
+    48                              <1>     MOV [ESP], EAX
+    49                              <1> %ENDMACRO
+    50                              <1> 
+    51                              <1> %MACRO div 0
+    52                              <1>     XOR EDX, EDX
+    53                              <1>     POP EBX
+    54                              <1>     POP EAX
+    55                              <1>     DIV EBX
+    56                              <1>     PUSH EAX
+    57                              <1> %ENDMACRO
+    58                              <1> 
+    59                              <1> %MACRO mod 0
+    60                              <1>     XOR EDX, EDX
+    61                              <1>     POP EBX
+    62                              <1>     POP EAX
+    63                              <1>     DIV EBX
+    64                              <1>     PUSH EDX
+    65                              <1> %ENDMACRO
+    66                              <1> 
+    67                              <1> %MACRO neg 0
+    68                              <1>     NEG DWORD [ESP]
+    69                              <1> %ENDMACRO
+    70                              <1> 
+    71                              <1> %MACRO or 0
+    72                              <1>     POP EAX
+    73                              <1>     OR DWORD [ESP], EAX
+    74                              <1> %ENDMACRO
+    75                              <1> 
+    76                              <1> %MACRO and 0
+    77                              <1>     POP EAX
+    78                              <1>     AND DWORD [ESP], EAX
+    79                              <1> %ENDMACRO
+    80                              <1> 
+    81                              <1> %MACRO not 0
+    82                              <1>     XOR DWORD [ESP], 0FFFFFFFFH
+    83                              <1> %ENDMACRO
+    84                              <1> 
+    85                              <1> ;比较语句的编写方法也大致相同，先比较，再利用flags寄存器的标志位来获得结果
+    86                              <1> %MACRO cmpeq 0
+    87                              <1>     MOV EAX, [ESP+4]
+    88                              <1>     CMP EAX, [ESP]
+    89                              <1>     PUSHF
+    90                              <1>     POP EAX
+    91                              <1>     SHR EAX, 6
+    92                              <1>     AND EAX, 0X1
+    93                              <1>     ADD ESP, 4
+    94                              <1>     MOV [ESP], EAX
+    95                              <1> %ENDMACRO
+    96                              <1> 
+    97                              <1> %MACRO cmpne 0
+    98                              <1>     MOV EAX, [ESP+4]
+    99                              <1>     CMP EAX, [ESP]
+   100                              <1>     PUSHF
+   101                              <1>     POP EAX
+   102                              <1>     SHR EAX, 6
+   103                              <1>     AND EAX, 0X1
+   104                              <1>     XOR EAX, 0X1
+   105                              <1>     ADD ESP, 4
+   106                              <1>     MOV [ESP], EAX
+   107                              <1> %ENDMACRO
+   108                              <1> 
+   109                              <1> %MACRO cmpge 0
+   110                              <1>     MOV EAX, [ESP+4]
+   111                              <1>     CMP EAX, [ESP]
+   112                              <1>     PUSHF
+   113                              <1>     POP EAX
+   114                              <1>     SHR EAX, 7
+   115                              <1>     AND EAX, 0X1
+   116                              <1>     XOR EAX, 0X1
+   117                              <1>     ADD ESP, 4
+   118                              <1>     MOV [ESP], EAX
+   119                              <1> %ENDMACRO
+   120                              <1> 
+   121                              <1> %MACRO cmple 0
+   122                              <1>     POP EAX
+   123                              <1>     CMP EAX, [ESP]
+   124                              <1>     PUSHF
+   125                              <1>     POP EAX
+   126                              <1>     SHR EAX, 7
+   127                              <1>     AND EAX, 0X1
+   128                              <1>     XOR EAX, 0X1
+   129                              <1>     MOV [ESP], EAX
+   130                              <1> %ENDMACRO
+   131                              <1> 
+   132                              <1> %MACRO cmpls 0
+   133                              <1>     MOV EAX, [ESP+4]
+   134                              <1>     CMP EAX, [ESP]
+   135                              <1>     PUSHF
+   136                              <1>     POP EAX
+   137                              <1>     SHR EAX, 7
+   138                              <1>     AND EAX, 0X1
+   139                              <1>     ADD ESP, 4
+   140                              <1>     MOV [ESP], EAX
+   141                              <1> %ENDMACRO
+   142                              <1> 
+   143                              <1> %MACRO cmpgt 0
+   144                              <1>     POP EAX
+   145                              <1>     CMP EAX, [ESP]
+   146                              <1>     PUSHF
+   147                              <1>     POP EAX
+   148                              <1>     SHR EAX, 7
+   149                              <1>     AND EAX, 0X1
+   150                              <1>     MOV [ESP], EAX
+   151                              <1> %ENDMACRO
+   152                              <1> 
+   153                              <1> ;函数调用
+   154                              <1> ;和汇编语言相同，调用时先保存当前位置
+   155                              <1> %MACRO FUNC 1
+   156                              <1>     %1
+   157                              <1>     PUSH EBP
+   158                              <1>     MOV EBP, ESP
+   159                              <1> %ENDMACRO
+   160                              <1> 
+   161                              <1> %MACRO ret 0-1
+   162                              <1>     %IFIDN %0, 1
+   163                              <1>         %IFIDN %1, ~
+   164                              <1>             MOV EAX, [ESP]
+   165                              <1>         %ELSE
+   166                              <1>             MOV EAX, %1
+   167                              <1>         %ENDIF
+   168                              <1>     %ENDIF
+   169                              <1>     LEAVE
+   170                              <1>     RET
+   171                              <1> %ENDMACRO
+   172                              <1> 
+   173                              <1> %MACRO print 1
+   174                              <1>     [SECTION .DATA]
+   175                              <1>         %%STRING:   DB %1, 10, 0
+   176                              <1>     [SECTION .TEXT]
+   177                              <1>         PUSH DWORD %%STRING
+   178                              <1>         CALL PRINT
+   179                              <1>         SHL EAX, 2
+   180                              <1>         ADD ESP, EAX
+   181                              <1> %ENDMACRO
+   182                              <1> 
+   183                              <1> GLOBAL _start
+   184                              <1> 
+   185                              <1> [SECTION .TEXT]
+   186                              <1> _start:
+   187 00000000 E80B000000          <1> 	CALL @main
+   188 00000005 50                  <1> 	PUSH EAX
+   189                              <1> 	exit [ESP]
+   189 00000006 B801000000          <2>  MOV EAX, 1
+   189 0000000B 8B1C24              <2>  MOV EBX, %1
+   189 0000000E CD80                <2>  INT 0x80
+     2                                  %include "my.inc"
+     1                              <1> ; ---------Now Function Is: main ---------------
+     2                              <1> %define main.argc 0
+     3                              <1> %define main.varc 2
+     4                              <1> 
+     5                              <1> %MACRO $main 0
+     6                              <1> 	CALL @main
+     7                              <1> 	ADD ESP, 4*main.argc
+     8                              <1> 	PUSH EAX
+     9                              <1> %ENDMACRO
+    10                              <1> 
+    11                              <1> %MACRO main.var main.varc
+    12                              <1> 	%define a [EBP - 4*1]
+    13                              <1> 	%define b [EBP - 4*2]
+    14                              <1> 	SUB ESP, 4*main.varc
+    15                              <1> %ENDMACRO
+    16                              <1> 
+    17                              <1> %MACRO ENDFUNC@main 0
+    18                              <1> 	LEAVE
+    19                              <1> 	RET
+    20                              <1> 	%undef a
+    21                              <1> 	%undef b
+    22                              <1> %ENDMACRO
+    23                              <1> 
+    24                              <1> 
+    25                              <1> ; ---------Now Function Is: sum ---------------
+    26                              <1> %define sum.argc 2
+    27                              <1> %define sum.varc 1
+    28                              <1> 
+    29                              <1> %MACRO $sum 0
+    30                              <1> 	CALL @sum
+    31                              <1> 	ADD ESP, 4*sum.argc
+    32                              <1> 	PUSH EAX
+    33                              <1> %ENDMACRO
+    34                              <1> 
+    35                              <1> %MACRO sum.arg sum.argc
+    36                              <1> 	%define a [EBP + 8 + 4*sum.argc - 4*1]
+    37                              <1> 	%define b [EBP + 8 + 4*sum.argc - 4*2]
+    38                              <1> %ENDMACRO
+    39                              <1> 
+    40                              <1> %MACRO sum.var sum.varc
+    41                              <1> 	%define c [EBP - 4*1]
+    42                              <1> 	SUB ESP, 4*sum.varc
+    43                              <1> %ENDMACRO
+    44                              <1> 
+    45                              <1> %MACRO ENDFUNC@sum 0
+    46                              <1> 	LEAVE
+    47                              <1> 	RET
+    48                              <1> 	%undef a
+    49                              <1> 	%undef b
+    50                              <1> 	%undef c
+    51                              <1> %ENDMACRO
+    52                              <1> 
+    53                              <1> 
+     3                                  
+     4                                  FUNC @main:
+     4                              <1>  %1
+     4 00000010 55                  <1>  PUSH EBP
+     4 00000011 89E5                <1>  MOV EBP, ESP
+     5                                  	main.var a, b
+     5                              <1>  %define a [EBP - 4*1]
+     5                              <1>  %define b [EBP - 4*2]
+     5 00000013 83EC08              <1>  SUB ESP, 4*main.varc
+     6                                  	push 3
+     6 00000016 6A03                <1>  PUSH DWORD %1
+     7                                  	pop a
+     7                              <1>  %IFIDN %0, 0
+     7                              <1>  ADD ESP, 4
+     7                              <1>  %ELSE
+     7 00000018 8F45FC              <1>  POP DWORD %1
+     7                              <1>  %ENDIF
+     8                                  
+     9                                  	push 1
+     9 0000001B 6A01                <1>  PUSH DWORD %1
+    10                                  	pop b
+    10                              <1>  %IFIDN %0, 0
+    10                              <1>  ADD ESP, 4
+    10                              <1>  %ELSE
+    10 0000001D 8F45F8              <1>  POP DWORD %1
+    10                              <1>  %ENDIF
+    11                                  
+    12                                  	push 4
+    12 00000020 6A04                <1>  PUSH DWORD %1
+    13                                  	push a
+    13 00000022 FF75FC              <1>  PUSH DWORD %1
+    14                                  	$sum
+    14 00000025 E810000000          <1>  CALL @sum
+    14 0000002A 83C408              <1>  ADD ESP, 4*sum.argc
+    14 0000002D 50                  <1>  PUSH EAX
+    15                                  	pop a
+    15                              <1>  %IFIDN %0, 0
+    15                              <1>  ADD ESP, 4
+    15                              <1>  %ELSE
+    15 0000002E 8F45FC              <1>  POP DWORD %1
+    15                              <1>  %ENDIF
+    16                                  
+    17                                  	push 0
+    17 00000031 6A00                <1>  PUSH DWORD %1
+    18                                  	ret ~
+    18                              <1>  %IFIDN %0, 1
+    18                              <1>  %IFIDN %1, ~
+    18 00000033 8B0424              <1>  MOV EAX, [ESP]
+    18                              <1>  %ELSE
+    18                              <1>  MOV EAX, %1
+    18                              <1>  %ENDIF
+    18                              <1>  %ENDIF
+    18 00000036 C9                  <1>  LEAVE
+    18 00000037 C3                  <1>  RET
+    19                                  
+    20                                  ENDFUNC@main
+    20 00000038 C9                  <1>  LEAVE
+    20 00000039 C3                  <1>  RET
+    20                              <1>  %undef a
+    20                              <1>  %undef b
+    21                                  
+    22                                  FUNC @sum:
+    22                              <1>  %1
+    22 0000003A 55                  <1>  PUSH EBP
+    22 0000003B 89E5                <1>  MOV EBP, ESP
+    23                                  	sum.arg a,b
+    23                              <1>  %define a [EBP + 8 + 4*sum.argc - 4*1]
+    23                              <1>  %define b [EBP + 8 + 4*sum.argc - 4*2]
+    24                                   	sum.var c
+    24                              <1>  %define c [EBP - 4*1]
+    24 0000003D 83EC04              <1>  SUB ESP, 4*sum.varc
+    25                                  	push a
+    25 00000040 FF750C              <1>  PUSH DWORD %1
+    26                                  	push b
+    26 00000043 FF7508              <1>  PUSH DWORD %1
+    27                                  	add
+    27 00000046 58                  <1>  POP EAX
+    27 00000047 010424              <1>  ADD DWORD [ESP], EAX
+    28                                  	pop c
+    28                              <1>  %IFIDN %0, 0
+    28                              <1>  ADD ESP, 4
+    28                              <1>  %ELSE
+    28 0000004A 8F45FC              <1>  POP DWORD %1
+    28                              <1>  %ENDIF
+    29                                  
+    30                                  	push c
+    30 0000004D FF75FC              <1>  PUSH DWORD %1
+    31                                  	ret ~
+    31                              <1>  %IFIDN %0, 1
+    31                              <1>  %IFIDN %1, ~
+    31 00000050 8B0424              <1>  MOV EAX, [ESP]
+    31                              <1>  %ELSE
+    31                              <1>  MOV EAX, %1
+    31                              <1>  %ENDIF
+    31                              <1>  %ENDIF
+    31 00000053 C9                  <1>  LEAVE
+    31 00000054 C3                  <1>  RET
+    32                                  
+    33                                  ENDFUNC@sum
+    33 00000055 C9                  <1>  LEAVE
+    33 00000056 C3                  <1>  RET
+    33                              <1>  %undef a
+    33                              <1>  %undef b
+    33                              <1>  %undef c
+    34                                  

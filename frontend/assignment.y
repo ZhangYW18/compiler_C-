@@ -35,7 +35,7 @@ void yyerror(char* msg);
 
 %token  INTEGER
 %token  IDENTIFIER
-%token T_Int T_Void T_Bool T_Return T_Break T_While T_If T_Else T_Le T_Ge T_Ne
+%token T_Int T_Void T_Return T_Break T_While T_If T_Else T_Le T_Ge T_Ne
 %token T_Eq T_AddEq T_SubEq T_True
 %token T_False T_Continue
 
@@ -75,7 +75,6 @@ var_decl_id: Identifier
 
 type_specifier: T_Int
 | T_Void
-| T_Bool
 ;
 
 func_declaration: type_specifier FuncName '(' params ')' statement
@@ -298,21 +297,11 @@ factor: '(' expression ')'
 | var   {   printf("\tpush %s\n",$1);  }
 | call
 | constant {   printf("\tpush %s\n",$1); }
-| constant_true {   printf("\tpush 1"); }
-| constant_false {   printf("\tpush 0"); }
 ;
 
 /* 常数 */
 constant:
 INTEGER
-;
-
-constant_true:
-T_True
-;
-
-constant_false:
-T_False
 ;
 
 call: Identifier '(' args ')' { printf("\t$%s\n", $1); }
@@ -327,7 +316,7 @@ arg_list: arg_list ',' expression
 | expression
 ;
 
-Identifier: IDENTIFIER 
+Identifier: IDENTIFIER
 ;
 
 %%

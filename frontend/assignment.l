@@ -11,7 +11,6 @@
 
 "int"                 { return T_Int; }
 "void"              { return T_Void; }
-"bool"              { return T_Bool; }
 "return"            { return T_Return; }
 "while"             { return T_While; }
 "if"                { return T_If; }

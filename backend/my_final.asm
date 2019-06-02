@@ -52,16 +52,14 @@
 
 %line 172+1 macro.inc
 
-%line 182+1 macro.inc
-
 [global _start]
 
-[SECTION .TEXT]
+[SECTION .text]
 _start:
  CALL @main
  PUSH EAX
  MOV EAX, 1
-%line 189+0 macro.inc
+%line 179+0 macro.inc
  MOV EBX, [ESP]
  INT 0x80
 %line 1+1 my.inc
@@ -70,82 +68,77 @@ _start:
 
 %line 10+1 my.inc
 
-%line 16+1 my.inc
+%line 15+1 my.inc
 
-%line 23+1 my.inc
-
-
+%line 20+1 my.inc
 
 %line 28+1 my.inc
 
-%line 34+1 my.inc
+
+
+%line 33+1 my.inc
 
 %line 39+1 my.inc
 
 %line 44+1 my.inc
 
-%line 52+1 my.inc
+%line 50+1 my.inc
 
 
-%line 3+1 my.nasm
-
- @main:
-%line 4+0 my.nasm
+%line 1+1 my.asm
+ @sum:
+%line 1+0 my.asm
  PUSH EBP
  MOV EBP, ESP
-%line 5+1 my.nasm
- SUB ESP, 4*2
+%line 3+1 my.asm
+ SUB ESP, 4*1
+ PUSH DWORD [EBP + 8 + 4*2 - 4*1]
+ PUSH DWORD [EBP + 8 + 4*2 - 4*2]
+ POP EAX
+%line 6+0 my.asm
+ ADD DWORD [ESP], EAX
+%line 7+1 my.asm
+ POP DWORD [EBP - 4*1]
+
+ PUSH DWORD [EBP - 4*1]
+ MOV EAX, [ESP]
+%line 10+0 my.asm
+ LEAVE
+ RET
+%line 11+1 my.asm
+
+ LEAVE
+%line 12+0 my.asm
+ RET
+%line 13+1 my.asm
+
+ @main:
+%line 14+0 my.asm
+ PUSH EBP
+ MOV EBP, ESP
+%line 15+1 my.asm
+ SUB ESP, 4*1
  PUSH DWORD 3
  POP DWORD [EBP - 4*1]
 
  PUSH DWORD 4
  PUSH DWORD [EBP - 4*1]
  CALL @sum
-%line 11+0 my.nasm
+%line 21+0 my.asm
  ADD ESP, 4*2
  PUSH EAX
-%line 12+1 my.nasm
- POP DWORD [EBP - 4*2]
+%line 22+1 my.asm
+ POP DWORD [EBP - 4*1]
 
  PUSH DWORD 0
  MOV EAX, [ESP]
-%line 15+0 my.nasm
+%line 25+0 my.asm
  LEAVE
  RET
-%line 16+1 my.nasm
+%line 26+1 my.asm
 
  LEAVE
-%line 17+0 my.nasm
+%line 27+0 my.asm
  RET
-%line 18+1 my.nasm
+%line 28+1 my.asm
 
- @sum:
-%line 19+0 my.nasm
- PUSH EBP
- MOV EBP, ESP
-%line 21+1 my.nasm
- SUB ESP, 4*1
- PUSH DWORD [EBP + 8 + 4*2 - 4*1]
- PUSH DWORD [EBP + 8 + 4*2 - 4*2]
- POP EAX
-%line 24+0 my.nasm
- ADD DWORD [ESP], EAX
-%line 25+1 my.nasm
- POP DWORD [EBP - 4*1]
-
- PUSH DWORD [EBP - 4*1]
- MOV EAX, [ESP]
-%line 28+0 my.nasm
- LEAVE
- RET
-%line 29+1 my.nasm
-
- LEAVE
-%line 30+0 my.nasm
- RET
-%line 31+1 my.nasm
-
- MOV EAX, 1
-%line 32+0 my.nasm
- MOV EBX, 0
- INT 0x80
