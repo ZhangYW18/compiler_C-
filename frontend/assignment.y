@@ -17,6 +17,8 @@ char *nowFuncName;
 char *inputFileName, *outputFileName, *incFileNameString;
 int nowFuncs=0, nowArgs, nowVars, nowFuncType, nowFuncReturn;
 char  *nowFuncArgs[MAX_ARGS_SIZE], *nowFuncVars[MAX_VARS_SIZE], *nowFunc[MAX_FUNCTIONS];
+int nowFuncArgsCount[MAX_ARGS_SIZE];
+int countCallArgs=0;
 
 #define _BEG_IF     {istack[++itop] = ++ii;}
 #define _END_IF     {itop--;}
@@ -56,6 +58,7 @@ func_declaration: func_type_name '(' params ')' statement
 									if (nowFuncType==1) {
 										if (nowFuncReturn==0) yyerror("return not found in function");
 									}
+									nowFuncArgsCount[nowFuncs] = nowArgs;
 									printf("ENDFUNC@%s\n\n",nowFuncName);
 									my_writeFunc();
 								}
@@ -157,8 +160,8 @@ expression_stmt: expressions ';' {printf("\n");}
 ;
 
 selection_stmt:
-If '(' expressions ')' Then statement EndThen Else statement EndIf
-| If '(' expressions ')' Then statement EndThen EndIf
+If '(' expressions ')' Then statement_list EndThen Else statement_list EndIf
+| If '(' expressions ')' Then statement_list EndThen EndIf
 ;
 
 If:
@@ -181,7 +184,7 @@ EndIf:
 /* empty */     { printf("_endIf_%d:\n\n", _i); _END_IF; }
 ;
 
-iteration_stmt: While '(' expressions ')' Do statement EndWhile
+iteration_stmt: While '(' expressions ')' Do statement_list EndWhile
 ;
 
 While:
@@ -226,11 +229,6 @@ return_stmt: T_Return ';' {
 expressions:
 var '=' expressions
 {
-	int flag=0;
-	for (int i=1;i<=nowVars;i++) {
-		if (strcmp($1,nowFuncVars[i])==0) flag=1;
-	}
-	if (!flag) yyerror("the left side of assignment statement (\"=\") must be a variable");
 	printf("\tpush %s\n", $3);
 	printf("\tpop %s\n", $1);
 }
@@ -317,7 +315,7 @@ unary_expression:
 ;
 
 factor: '(' expression ')'
-| var   {   printf("\tpush %s\n",$1);  }
+| var   {   printf("\tpush %s\n",$1); }
 | call
 | constant {   printf("\tpush %s\n",$1); }
 ;
@@ -330,20 +328,24 @@ INTEGER
 call: Identifier '(' args ')' {
 	int flag=0;
 	for (int i=1;i<=nowFuncs;i++) {
-		if (strcmp($1,nowFunc[i])==0) flag=1;
+		if (strcmp($1,nowFunc[i])==0) flag=1; else {
+			if (countCallArgs != nowFuncArgsCount[i])
+				yyerror("total number of function call arguments is not right");
+					//函数调用参数数量不对
+		}
 	}
-	if (!flag) yyerror("function not defined before");
+	if (!flag) yyerror("function not defined before"); //调用的函数之前没有定义
 	printf("\t$%s\n", $1);
 }
 ;
 
 args: arg_list
-| /*empty*/
+| /*empty*/  { countCallArgs = 0;}
 ;
 
 /* 变量列表 */
-arg_list: arg_list ',' expression
-| expression
+arg_list: arg_list ',' expression { countCallArgs++;}
+| expression { countCallArgs = 1;}
 ;
 
 Identifier: IDENTIFIER
@@ -416,11 +418,16 @@ int main(int argc, char *argv[])
 		exit(0);
 	}
 
-//	printf("\tMOV EBP, ESP\n");
 	incFileNameString = "./backend/my.inc";
 	incFileName = fopen(incFileNameString, "w");
 
 	yyparse();
+
+	int flag=0;
+	for (int i=1;i<=nowFuncs;i++) {
+		if (strcmp(nowFunc[i],"main")) flag=1;
+	}
+	if (!flag) yyerror("main function not defined");
 
 	fclose(yyin);
 	fclose(incFileName);
