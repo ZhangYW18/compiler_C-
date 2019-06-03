@@ -29,7 +29,7 @@
 
 ; ---------Now Function Is: main ---------------
 %define main.argc 0
-%define main.varc 1
+%define main.varc 2
 
 %MACRO $main 0
 	CALL @main
@@ -39,6 +39,7 @@
 
 %MACRO main.var main.varc
 	%define a [EBP - 4*1]
+	%define b [EBP - 4*2]
 	SUB ESP, 4*main.varc
 %ENDMACRO
 
@@ -46,6 +47,7 @@
 	LEAVE
 	RET
 	%undef a
+	%undef b
 %ENDMACRO
 
 

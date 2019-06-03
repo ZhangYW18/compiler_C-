@@ -9,8 +9,8 @@
 
 %%
 
-"int"                 { yylval = strdup(yytext);return T_Int; }
-"void"              { yylval = strdup(yytext);return T_Void; }
+"int"                 { yylval = strdup(yytext); return T_Int; }
+"void"              { yylval = strdup(yytext); return T_Void; }
 "return"            { return T_Return; }
 "while"             { return T_While; }
 "if"                { return T_If; }

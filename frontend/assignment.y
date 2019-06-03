@@ -160,8 +160,8 @@ expression_stmt: expressions ';' {printf("\n");}
 ;
 
 selection_stmt:
-If '(' expressions ')' Then statement_list EndThen Else statement_list EndIf
-| If '(' expressions ')' Then statement_list EndThen EndIf
+If '(' expressions ')' Then '{' statement_list '}' EndThen Else '{' statement_list EndIf '}'
+| If '(' expressions ')' Then '{' statement_list '}' EndThen EndIf
 ;
 
 If:
@@ -184,7 +184,7 @@ EndIf:
 /* empty */     { printf("_endIf_%d:\n\n", _i); _END_IF; }
 ;
 
-iteration_stmt: While '(' expressions ')' Do statement_list EndWhile
+iteration_stmt: While '(' expressions ')' Do '{' statement_list EndWhile '}'
 ;
 
 While:
@@ -234,15 +234,15 @@ var '=' expressions
 }
 | var T_AddEq  expressions
 {
-	printf("\tpush %s\n", $3);
 	printf("\tpush %s\n", $1);
+	printf("\tpush %s\n", $3);
 	printf("\tadd\n");
 	printf("\tpop %s\n", $1);
 }
 | var T_SubEq  expressions
 {
-	printf("\tpush %s\n", $3);
 	printf("\tpush %s\n", $1);
+	printf("\tpush %s\n", $3);
 	printf("\tsub\n");
 	printf("\tpop %s\n", $1);
 }
@@ -264,6 +264,7 @@ var '=' simple_expression
 {
 	printf("\tpush %s\n", $1);
 	printf("\tsub\n");
+	printf("\tneg\n");
 	printf("\tpop %s\n", $1);
 }
 | simple_expression
@@ -328,7 +329,8 @@ INTEGER
 call: Identifier '(' args ')' {
 	int flag=0;
 	for (int i=1;i<=nowFuncs;i++) {
-		if (strcmp($1,nowFunc[i])==0) flag=1; else {
+		if (strcmp($1,nowFunc[i])==0) {
+			flag=1;
 			if (countCallArgs != nowFuncArgsCount[i])
 				yyerror("total number of function call arguments is not right");
 					//函数调用参数数量不对

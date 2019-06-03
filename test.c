@@ -5,8 +5,17 @@ int sum(int a,b) {
 }
 
 int main() {
-    int a;
+    int a,b;
     a = 3;
-    a = sum(4, a);
+    b = 5;
+    while (b>0) {
+	    if (a+4<15) {
+		    a = sum(4, a);
+	    } else {
+		    a += 1;
+	    }
+	    b -= 1;
+    }
+	a -= 1;
     return 0;
 }
