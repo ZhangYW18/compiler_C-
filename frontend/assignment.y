@@ -3,22 +3,24 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#define MAX_STACK_SIZE 105
-#define MAX_ARGS_SIZE 27
-#define MAX_VARS_SIZE 27
+#define MAX_STACK_SIZE 505
+#define MAX_ARGS_SIZE 100
+#define MAX_VARS_SIZE 100
 #define MAX_FUNCTIONS 100
 
 extern FILE* yyin;
-FILE *incFileName;
+FILE *incFileName, *file;
 
 int ii = 0, itop = -1, istack[MAX_STACK_SIZE];
 int ww = 0, wtop = -1, wstack[MAX_STACK_SIZE];
 char *nowFuncName;
-char *inputFileName, *outputFileName, *incFileNameString;
+char *inputFileName, *outputFileName, *incFileNameString, *filename;
 int nowFuncs=0, nowArgs, nowVars, nowFuncType, nowFuncReturn;
 char  *nowFuncArgs[MAX_ARGS_SIZE], *nowFuncVars[MAX_VARS_SIZE], *nowFunc[MAX_FUNCTIONS];
+char *globalVar[MAX_VARS_SIZE];
 int nowFuncArgsCount[MAX_ARGS_SIZE];
 int countCallArgs=0;
+int globalVarFlag=1, globalVarCount = 0;
 
 #define _BEG_IF     {istack[++itop] = ++ii;}
 #define _END_IF     {itop--;}
@@ -35,6 +37,8 @@ extern int yylineno;
 void yyerror(char* msg);
 void my_writeFunc();
 int check(char *str);
+void write_ins(char *inst, char *var);
+int checkGlobalVarDuplicate (char *str);
 
 %}
 
@@ -49,7 +53,11 @@ int check(char *str);
 start: declaration_list
 
 
-declaration_list: declaration_list func_declaration
+declaration_list: declaration_list declaration
+| declaration
+;
+
+declaration: var_declaration
 | func_declaration
 ;
 
@@ -61,6 +69,7 @@ func_declaration: func_type_name '(' params ')' statement
 									nowFuncArgsCount[nowFuncs] = nowArgs;
 									printf("ENDFUNC@%s\n\n",nowFuncName);
 									my_writeFunc();
+									globalVarFlag = 1;
 								}
 ;
 
@@ -68,6 +77,7 @@ func_type_name: type_specifier FuncName {
 	if (strcmp($1,"int")==0) {
 		nowFuncType = 1;
 	} else nowFuncType = 0;
+	globalVarFlag = 0;
 }
 
 FuncName:
@@ -80,8 +90,12 @@ Identifier     {
 }
 ;
 
-params: param_list
-| /* empty */
+params: param_list {
+	printf("\t%s.var\n",  nowFuncName);
+}
+| /* empty */ {
+	printf("\t%s.var\n",  nowFuncName);
+}
 ;
 
 param_list: param_type_list
@@ -93,13 +107,13 @@ param_type_list: type_specifier param_id_list   { printf("\n "); }
 
 param_id_list: param_id_list ',' param_id {
 	if (check($3)) yyerror("duplicate parameters");
-	printf(",%s",  $3);
+	printf(", %s.%s", nowFuncName,  $3);
 	nowArgs++;
 	nowFuncArgs[nowArgs] = $3;
 }
 | param_id {
 	if (check($1)) yyerror("duplicate parameters");
-	printf("\t%s.arg %s",  nowFuncName, $1);
+	printf("\t%s.arg %s.%s",  nowFuncName, nowFuncName, $1);
 	nowArgs++;
 	nowFuncArgs[nowArgs] = $1;
 }
@@ -113,21 +127,26 @@ local_declarations: local_declarations var_declaration
 ;
 
 var_declaration: type_specifier var_decl_list ';' {
-	printf("\n");
 }
 ;
 
 var_decl_list: var_decl_id {
-	if (check($1)) yyerror("duplicate variable");
-	printf("\t%s.var %s",  nowFuncName, $1);
-	nowVars++;
-	nowFuncVars[nowVars] = $1;
+	if (globalVarFlag) {
+		globalVar[ ++globalVarCount ] = $1;
+	} else {
+		if (check($1)) yyerror("duplicate variable");
+		nowVars++;
+		nowFuncVars[nowVars] = $1;
+	}
 }
 | var_decl_list ',' var_decl_id {
-	if (check($3)) yyerror("duplicate variable");
-	printf(", %s", $3);
-	nowVars++;
-	nowFuncVars[nowVars] = $3;
+	if (globalVarFlag) {
+		globalVar[ ++globalVarCount ] = $3;
+	} else {
+		if (check($3)) yyerror("duplicate variable");
+		nowVars++;
+		nowFuncVars[nowVars] = $3;
+	}
 }
 ;
 
@@ -208,11 +227,17 @@ EndWhile:
 ;
 
 break_stmt:
-T_Break ';'     { printf("\tjmp _endWhile_%d\n", _w); }
+T_Break ';'     {
+	if (wtop<0) yyerror("break must be inside an iteration!");
+	printf("\tjmp _endWhile_%d\n", _w);
+}
 ;
 
 continue_stmt:
-T_Continue ';'  { printf("\tjmp _begWhile_%d\n", _w); }
+T_Continue ';'  {
+	if (wtop<0) yyerror("continue must be inside an iteration!");
+	printf("\tjmp _begWhile_%d\n", _w);
+}
 ;
 
 return_stmt: T_Return ';' {
@@ -229,22 +254,22 @@ return_stmt: T_Return ';' {
 expressions:
 var '=' expressions
 {
-	printf("\tpush %s\n", $3);
-	printf("\tpop %s\n", $1);
+	write_ins("push",$3);
+	write_ins("pop",$1);
 }
 | var T_AddEq  expressions
 {
-	printf("\tpush %s\n", $1);
-	printf("\tpush %s\n", $3);
+	write_ins("push",$1);
+	write_ins("push",$3);
 	printf("\tadd\n");
-	printf("\tpop %s\n", $1);
+	write_ins("pop",$1);
 }
 | var T_SubEq  expressions
 {
-	printf("\tpush %s\n", $1);
-	printf("\tpush %s\n", $3);
+	write_ins("push",$1);
+	write_ins("push",$3);
 	printf("\tsub\n");
-	printf("\tpop %s\n", $1);
+	write_ins("pop",$1);
 }
 | expression
 ;
@@ -252,25 +277,27 @@ var '=' expressions
 expression:
 var '=' simple_expression
 {
-	printf("\tpop %s\n", $1);
+	write_ins("pop",$1);
 }
 | var T_AddEq  simple_expression
 {
-	printf("\tpush %s\n", $1);
+	write_ins("push",$1);
 	printf("\tadd\n");
-	printf("\tpop %s\n", $1);
+	write_ins("pop",$1);
 }
 | var T_SubEq  simple_expression
 {
-	printf("\tpush %s\n", $1);
+	write_ins("push",$1);
 	printf("\tsub\n");
 	printf("\tneg\n");
-	printf("\tpop %s\n", $1);
+	write_ins("pop",$1);
 }
 | simple_expression
 ;
 
-var: Identifier { if (!check($1)) yyerror("undefined variable"); }
+var: Identifier {
+	if ( !check($1) && !checkGlobalVarDuplicate($1)) yyerror("undefined variable");
+}
 ;
 
 simple_expression:
@@ -316,7 +343,9 @@ unary_expression:
 ;
 
 factor: '(' expression ')'
-| var   {   printf("\tpush %s\n",$1); }
+| var   {
+	write_ins("push",$1);
+ }
 | call
 | constant {   printf("\tpush %s\n",$1); }
 ;
@@ -355,12 +384,27 @@ Identifier: IDENTIFIER
 
 %%
 
+void write_ins(char *inst, char *var) {
+	if (check(var)) {
+		printf("\t%s %s.%s\n", inst, nowFuncName, var); //局部变量
+	} else {
+		printf("\t%s [%s]\n", inst, var);  //全局变量
+	}
+}
+
 int check(char *str) {
 	for (int i=1;i<=nowArgs;i++) {
 		if (strcmp(str,nowFuncArgs[i])==0) return 1;
 	}
 	for (int i=1;i<=nowVars;i++) {
 		if (strcmp(str,nowFuncVars[i])==0) return 1;
+	}
+	return 0;
+}
+
+int checkGlobalVarDuplicate (char *str) {
+	for (int i=1; i<=globalVarCount; i++) {
+		if (strcmp(str, globalVar[i])==0) return 1;
 	}
 	return 0;
 }
@@ -374,7 +418,6 @@ void yyerror(char* msg)
 void my_writeFunc() {
 	fprintf(incFileName, "; ---------Now Function Is: %s ---------------\n", nowFuncName);
 	fprintf(incFileName,"%%define %s.argc %d\n",  nowFuncName, nowArgs );
-	fprintf(incFileName,"%%define %s.varc %d\n",  nowFuncName, nowVars );
 
 	fprintf(incFileName,
     			"\n%%MACRO $%s 0\n\tCALL @%s\n\tADD ESP, 4*%s.argc\n\tPUSH EAX\n%%ENDMACRO\n\n",
@@ -383,28 +426,40 @@ void my_writeFunc() {
 	if (nowArgs!=0) {
 		fprintf(incFileName, "%%MACRO %s.arg %s.argc\n", nowFuncName, nowFuncName);
 		for (int i=1;i<=nowArgs;i++) {
-			fprintf(incFileName,"\t%%define %s [EBP + 8 + 4*%s.argc - 4*%d]\n", nowFuncArgs[i], nowFuncName, i);
+			fprintf(incFileName,"\t%%define %s.%s [EBP + 8 + 4*%s.argc - 4*%d]\n",
+			nowFuncName, nowFuncArgs[i], nowFuncName, i);
 		}
 		fprintf(incFileName, "%%ENDMACRO\n\n" );
 	}
 
-	if (nowVars!=0) {
-		fprintf(incFileName, "%%MACRO %s.var %s.varc\n", nowFuncName, nowFuncName);
+//	if (nowVars!=0) {
+		fprintf(incFileName, "%%MACRO %s.var 0\n", nowFuncName);
 		for (int i=1;i<=nowVars;i++) {
-			fprintf(incFileName,"\t%%define %s [EBP - 4*%d]\n", nowFuncVars[i], i);
+			fprintf(incFileName,"\t%%define %s.%s [EBP - 4*%d]\n\tSUB ESP, 4\n", nowFuncName, nowFuncVars[i], i);
 		}
-		fprintf(incFileName, "\tSUB ESP, 4*%s.varc\n", nowFuncName);
 		fprintf(incFileName, "%%ENDMACRO\n\n" );
-	}
+//	}
 
 	fprintf(incFileName, "%%MACRO ENDFUNC@%s 0\n\tLEAVE\n\tRET\n" ,nowFuncName);
 	for (int i=1;i<=nowArgs;i++) {
-		fprintf(incFileName, "\t%%undef %s\n", nowFuncArgs[i]);
+		fprintf(incFileName, "\t%%undef %s.%s\n", nowFuncName, nowFuncArgs[i]);
 	}
 	for (int i=1;i<=nowVars;i++) {
-		fprintf(incFileName, "\t%%undef %s\n", nowFuncVars[i]);
+		fprintf(incFileName, "\t%%undef %s.%s\n", nowFuncName, nowFuncVars[i]);
 	}
 	fprintf(incFileName, "%%ENDMACRO\n\n\n");
+}
+
+void write_global_variable() {
+	filename = "./backend/my_global_var.inc";
+	file = fopen(filename, "w");
+	fprintf(file,  "; ---------Now Global Variables---------------\n");
+	if (globalVarCount!=0) {
+		fprintf(file, "\t[SECTION   .data]\n");
+		for (int i=1;i<=globalVarCount;i++) {
+			fprintf(file,"%s:\tDD 0\n",  globalVar[i]);
+		}
+	}
 }
 
 int main(int argc, char *argv[])
@@ -430,6 +485,8 @@ int main(int argc, char *argv[])
 		if (strcmp(nowFunc[i],"main")) flag=1;
 	}
 	if (!flag) yyerror("main function not defined");
+
+	write_global_variable();
 
 	fclose(yyin);
 	fclose(incFileName);

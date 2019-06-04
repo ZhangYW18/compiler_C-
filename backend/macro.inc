@@ -170,7 +170,11 @@
     RET
 %ENDMACRO
 
+
+
 GLOBAL _start
+
+%include "my_global_var.inc"
 
 [SECTION .text]
 _start:

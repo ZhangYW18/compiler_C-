@@ -1,3 +1,5 @@
+int a;
+
 int sum(int a,b) {
     int c;
     c = a + b;
@@ -5,7 +7,7 @@ int sum(int a,b) {
 }
 
 int main() {
-    int a,b;
+    int b;
     a = 3;
     b = 5;
     while (b>0) {
@@ -17,5 +19,6 @@ int main() {
 	    b -= 1;
     }
 	a -= 1;
+	b = 5+a;
     return 0;
 }
