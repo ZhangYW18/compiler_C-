@@ -41,3 +41,9 @@ gdb ./my
 在gdb下，可以用b 12在第12行建立断点，r运行，c继续运行，info registers查看当前寄存器的值，l 12列出12行附近的代码。
 
 赋值语句执行之后，结果保存在EAX寄存器当中。
+
+
+
+
+特别感谢：
+https://pandolia.net/tinyc/index.html
